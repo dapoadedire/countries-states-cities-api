@@ -45,8 +45,7 @@ func HandleSyncData(c *gin.Context) {
 		return
 	}
 	c.JSON(
-		http.StatusOK
-		, gin.H{"message": "All files downloaded successfully"})
+		http.StatusOK, gin.H{"message": "All files downloaded successfully"})
 }
 
 // FetchData downloads required files from GitHub repository
