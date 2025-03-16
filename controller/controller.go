@@ -3,14 +3,12 @@ package controller
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/dapoadedire/countries-states-cities-api/database"
 	"github.com/gin-gonic/gin"
@@ -27,9 +25,7 @@ const (
 
 var (
 	// List of paths to download from the repository
-	repoPaths = []string{
-		"psql/world.sql",
-	}
+	repoPath = "psql/world.sql"
 )
 
 // HandleFetchData Gin handler for fetching data
@@ -45,7 +41,6 @@ func HandleSyncData(c *gin.Context) {
 	c.JSON(
 		http.StatusOK, gin.H{"message": "All files downloaded successfully"})
 }
-
 // FetchData downloads required files from GitHub repository
 func FetchData(ctx context.Context) error {
 	// Create data directory if not exists
@@ -54,32 +49,9 @@ func FetchData(ctx context.Context) error {
 	}
 
 	client := github.NewClient(nil)
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(repoPaths))
 
-	// Concurrently fetch each file
-	for _, path := range repoPaths {
-		wg.Add(1)
-		go func(p string) {
-			defer wg.Done()
-			if err := fetchAndSaveFile(ctx, client, githubOwner, githubRepo, p, dataDir); err != nil {
-				errChan <- fmt.Errorf("failed to process %s: %w", p, err)
-			}
-		}(path)
-	}
-
-	// Wait for all downloads to complete
-	wg.Wait()
-	close(errChan)
-
-	// Collect any errors
-	var errs []error
-	for err := range errChan {
-		errs = append(errs, err)
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("completed with %d errors: %w", len(errs), errors.Join(errs...))
+	if err := fetchAndSaveFile(ctx, client, githubOwner, githubRepo, repoPath, dataDir); err != nil {
+		return err
 	}
 
 	return nil
