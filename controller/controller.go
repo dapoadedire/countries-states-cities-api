@@ -28,7 +28,7 @@ var (
 	repoPath = "psql/world.sql"
 )
 
-// HandleFetchData Gin handler for fetching data
+// HandleSyncData Gin handler for fetching data
 func HandleSyncData(c *gin.Context) {
 	if err := FetchData(c.Request.Context()); err != nil {
 		c.JSON(
@@ -39,8 +39,9 @@ func HandleSyncData(c *gin.Context) {
 		return
 	}
 	c.JSON(
-		http.StatusOK, gin.H{"message": "All files downloaded successfully"})
+		http.StatusOK, gin.H{"message": "File downloaded successfully"})
 }
+
 // FetchData downloads required files from GitHub repository
 func FetchData(ctx context.Context) error {
 	// Create data directory if not exists
@@ -83,24 +84,21 @@ func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, p
 	return nil
 }
 
-
 func HandlePopulateAllData(c *gin.Context) {
 	dataDir := "data"
-	files := []string{"world.sql"}
+	fileName := "world.sql"
 
-	for _, fileName := range files {
-		if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   fmt.Sprintf("Failed to populate %s", fileName),
-				"details": err.Error(),
-			})
-			return
-		}
+	if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   fmt.Sprintf("Failed to populate %s", fileName),
+			"details": err.Error(),
+		})
+		return
+
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "All data populated successfully"})
 }
-
 
 func ExecuteSQLFromFile(ctx context.Context, db *sql.DB, dataDir, fileName string) error {
 	// Construct the file path
