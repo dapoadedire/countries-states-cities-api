@@ -28,6 +28,7 @@ func main() {
 	// Route for handling requests
 	router.GET("/", controller.HandleWelcome)
 	router.GET("/sync-data", controller.HandleSyncData)
+	router.GET("/populate", controller.HandlePopulateAllData)
 
 	// Ensure the /data directory exists
 	dataDir := "data"
