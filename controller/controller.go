@@ -100,6 +100,8 @@ func HandlePopulateAllData(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "All data populated successfully"})
 }
 
+
+
 func ExecuteSQLFromFile(ctx context.Context, db *sql.DB, dataDir, fileName string) error {
 	// Construct the file path
 	filePath := filepath.Join(dataDir, fileName)
@@ -110,18 +112,35 @@ func ExecuteSQLFromFile(ctx context.Context, db *sql.DB, dataDir, fileName strin
 		return fmt.Errorf("failed to read %s: %w", fileName, err)
 	}
 
-	// Convert the file content to a string
 	sqlContent := string(sqlBytes)
 
-	// Execute the SQL script
-	_, err = db.ExecContext(ctx, sqlContent)
+	// Begin a transaction for safer execution
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
+		return fmt.Errorf("failed to begin transaction for %s: %w", fileName, err)
+	}
+
+	// Execute the SQL script
+	_, err = tx.ExecContext(ctx, sqlContent)
+	if err != nil {
+		tx.Rollback() // Rollback on failure
 		return fmt.Errorf("failed to execute %s: %w", fileName, err)
 	}
 
-	fmt.Printf("%s executed successfully.\n", fileName)
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction for %s: %w", fileName, err)
+	}
+
+	// Remove the file only after successful execution
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("failed to remove %s: %w", fileName, err)
+	}
+
+	log.Printf("%s executed and removed successfully.", fileName)
 	return nil
 }
+
 func HandleWelcome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Welcome to the Countries, States, and Cities API",
