@@ -25,12 +25,12 @@ const (
 var (
 	// List of paths to download from the repository
 	repoPaths = []string{
-		"sql/cities.sql",
-		"sql/countries.sql",
-		"sql/regions.sql",
-		"sql/states.sql",
-		"sql/subregions.sql",
-		"sql/world.sql",
+		"psql/cities.sql",
+		"psql/countries.sql",
+		"psql/regions.sql",
+		"psql/states.sql",
+		"psql/subregions.sql",
+		"psql/world.sql",
 	}
 )
 
