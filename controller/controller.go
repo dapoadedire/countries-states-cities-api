@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -11,8 +12,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/dapoadedire/countries-states-cities-api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/v58/github"
+	_ "github.com/lib/pq"
 )
 
 const (
@@ -114,7 +117,46 @@ func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, p
 }
 
 
+func HandlePopulateAllData(c *gin.Context) {
+	dataDir := "data"
+	files := []string{"regions.sql", "subregions.sql", "countries.sql", "states.sql", "cities.sql", "world.sql"}
 
+	for _, fileName := range files {
+		if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   fmt.Sprintf("Failed to populate %s", fileName),
+				"details": err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "All data populated successfully"})
+}
+
+
+func ExecuteSQLFromFile(ctx context.Context, db *sql.DB, dataDir, fileName string) error {
+	// Construct the file path
+	filePath := filepath.Join(dataDir, fileName)
+
+	// Read the SQL file content
+	sqlBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", fileName, err)
+	}
+
+	// Convert the file content to a string
+	sqlContent := string(sqlBytes)
+
+	// Execute the SQL script
+	_, err = db.ExecContext(ctx, sqlContent)
+	if err != nil {
+		return fmt.Errorf("failed to execute %s: %w", fileName, err)
+	}
+
+	fmt.Printf("%s executed successfully.\n", fileName)
+	return nil
+}
 func HandleWelcome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Welcome to the Countries, States, and Cities API",
