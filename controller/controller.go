@@ -17,57 +17,54 @@ import (
 )
 
 const (
-	dataDir        = "data"                             // Directory to store downloaded files
-	githubOwner    = "dr5hn"                            // GitHub repository owner
+	dataDir        = "data"   // Directory to store downloaded files
+	fileName       = "world.sql" // Name of the SQL file to download
+	githubOwner    = "dr5hn" // Owner of the GitHub repository
 	githubRepo     = "countries-states-cities-database" // Repository name
-	filePermission = 0755                               // File permissions for created files/directories
+	filePermission = 0755   // File permission (rwxr-xr-x)
 )
 
-var (
-	// List of paths to download from the repository
-	repoPath = "psql/world.sql"
-)
+var repoPath = "psql/world.sql"
 
-// HandleSyncData Gin handler for fetching data
-func HandleSyncData(c *gin.Context) {
+// HandleSyncAndPopulateData combines fetching and populating data into one route
+func HandleSyncAndPopulateData(c *gin.Context) {
 	if err := FetchData(c.Request.Context()); err != nil {
-		c.JSON(
-			http.StatusInternalServerError, gin.H{
-				"error":   "Failed to fetch data",
-				"details": err.Error(),
-			})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to fetch data",
+			"details": err.Error(),
+		})
 		return
 	}
-	c.JSON(
-		http.StatusOK, gin.H{"message": "File downloaded successfully"})
+
+	if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to populate database",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Data fetched and populated successfully"})
 }
 
-// FetchData downloads required files from GitHub repository
+// FetchData downloads the required SQL file from GitHub
 func FetchData(ctx context.Context) error {
-	// Create data directory if not exists
 	if err := os.MkdirAll(dataDir, filePermission); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	client := github.NewClient(nil)
-
-	if err := fetchAndSaveFile(ctx, client, githubOwner, githubRepo, repoPath, dataDir); err != nil {
-		return err
-	}
-
-	return nil
+	return fetchAndSaveFile(ctx, client, githubOwner, githubRepo, repoPath, dataDir)
 }
 
 // fetchAndSaveFile downloads and saves a single file from GitHub
 func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, path, dir string) error {
-	// Download file content
 	fileContent, _, err := client.Repositories.DownloadContents(ctx, owner, repo, path, nil)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	defer fileContent.Close()
 
-	// Create destination file
 	filePath := filepath.Join(dir, filepath.Base(path))
 	outFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePermission)
 	if err != nil {
@@ -75,7 +72,6 @@ func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, p
 	}
 	defer outFile.Close()
 
-	// Copy content to file
 	if _, err := io.Copy(outFile, fileContent); err != nil {
 		return fmt.Errorf("file write failed: %w", err)
 	}
@@ -84,55 +80,29 @@ func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, p
 	return nil
 }
 
-func HandlePopulateAllData(c *gin.Context) {
-	dataDir := "data"
-	fileName := "world.sql"
-
-	if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   fmt.Sprintf("Failed to populate %s", fileName),
-			"details": err.Error(),
-		})
-		return
-
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "All data populated successfully"})
-}
-
-
-
+// ExecuteSQLFromFile executes an SQL file and deletes it afterward
 func ExecuteSQLFromFile(ctx context.Context, db *sql.DB, dataDir, fileName string) error {
-	// Construct the file path
 	filePath := filepath.Join(dataDir, fileName)
-
-	// Read the SQL file content
 	sqlBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", fileName, err)
 	}
-
 	sqlContent := string(sqlBytes)
-
-	// Begin a transaction for safer execution
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction for %s: %w", fileName, err)
 	}
 
-	// Execute the SQL script
 	_, err = tx.ExecContext(ctx, sqlContent)
 	if err != nil {
-		tx.Rollback() // Rollback on failure
+		tx.Rollback()
 		return fmt.Errorf("failed to execute %s: %w", fileName, err)
 	}
 
-	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction for %s: %w", fileName, err)
 	}
 
-	// Remove the file only after successful execution
 	if err := os.Remove(filePath); err != nil {
 		return fmt.Errorf("failed to remove %s: %w", fileName, err)
 	}
