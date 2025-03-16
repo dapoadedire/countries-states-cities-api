@@ -28,11 +28,6 @@ const (
 var (
 	// List of paths to download from the repository
 	repoPaths = []string{
-		"psql/cities.sql",
-		"psql/countries.sql",
-		"psql/regions.sql",
-		"psql/states.sql",
-		"psql/subregions.sql",
 		"psql/world.sql",
 	}
 )
@@ -119,7 +114,7 @@ func fetchAndSaveFile(ctx context.Context, client *github.Client, owner, repo, p
 
 func HandlePopulateAllData(c *gin.Context) {
 	dataDir := "data"
-	files := []string{"regions.sql", "subregions.sql", "countries.sql", "states.sql", "cities.sql", "world.sql"}
+	files := []string{"world.sql"}
 
 	for _, fileName := range files {
 		if err := ExecuteSQLFromFile(c.Request.Context(), database.DB, dataDir, fileName); err != nil {
