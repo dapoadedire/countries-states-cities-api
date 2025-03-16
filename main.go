@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	// Load .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
@@ -25,23 +24,12 @@ func main() {
 
 	router := gin.Default()
 
-	// Route for handling requests
 	router.GET("/", controller.HandleWelcome)
-	router.GET("/sync-data", controller.HandleSyncData)
-	router.GET("/populate", controller.HandlePopulateAllData)
+	router.POST("/api/sync-data", controller.HandleSyncAndPopulateData) // New combined endpoint
 
-	// Ensure the /data directory exists
-	dataDir := "data"
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dataDir, 0755); err != nil {
-			log.Fatalf("Error creating directory: %v", err)
-		}
-	}
-
-	// Get port from .env
 	portStr := os.Getenv("PORT")
 	if portStr == "" {
-		portStr = "8080" // Default port if not set
+		portStr = "8080"
 	}
 
 	port, err := strconv.Atoi(portStr)
@@ -49,7 +37,6 @@ func main() {
 		log.Fatalf("Invalid port number: %v", err)
 	}
 
-	// Start the server
 	if err := router.Run(":" + strconv.Itoa(port)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
