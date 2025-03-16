@@ -24,8 +24,13 @@ func main() {
 
 	router := gin.Default()
 
+	syncEndpoint := os.Getenv("SYNC_ENDPOINT")
+	if syncEndpoint == "" {
+		syncEndpoint = "/sync-data"
+	}
+
 	router.GET("/", controller.HandleWelcome)
-	router.POST("/api/sync-data", controller.HandleSyncAndPopulateData) // New combined endpoint
+	router.POST(syncEndpoint, controller.HandleSyncAndPopulateData)
 
 	portStr := os.Getenv("PORT")
 	if portStr == "" {
