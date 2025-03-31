@@ -11,17 +11,18 @@ import (
 	"path/filepath"
 
 	"github.com/dapoadedire/countries-states-cities-api/database"
+	"github.com/dapoadedire/countries-states-cities-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/v58/github"
 	_ "github.com/lib/pq"
 )
 
 const (
-	dataDir        = "data"   // Directory to store downloaded files
-	fileName       = "world.sql" // Name of the SQL file to download
-	githubOwner    = "dr5hn" // Owner of the GitHub repository
+	dataDir        = "data"                             // Directory to store downloaded files
+	fileName       = "world.sql"                        // Name of the SQL file to download
+	githubOwner    = "dr5hn"                            // Owner of the GitHub repository
 	githubRepo     = "countries-states-cities-database" // Repository name
-	filePermission = 0755   // File permission (rwxr-xr-x)
+	filePermission = 0755                               // File permission (rwxr-xr-x)
 )
 
 var repoPath = "psql/world.sql"
@@ -115,4 +116,146 @@ func HandleWelcome(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Welcome to the Countries, States, and Cities API",
 	})
+}
+
+func HandleGetCountries(c *gin.Context) {
+	rows, err := database.DB.Query("SELECT * FROM countries")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch countries"})
+		return
+	}
+	defer rows.Close()
+
+	var countries []model.Country
+	for rows.Next() {
+		var country model.Country
+		var regionID, subregionID sql.NullInt64
+		var native sql.NullString
+		var wiki_data_id sql.NullString
+		err := rows.Scan(
+			&country.ID,
+			&country.Name,
+			&country.Iso3,
+			&country.NumericCode,
+			&country.Iso2,
+			&country.PhoneCode,
+			&country.Capital,
+			&country.Currency,
+			&country.CurrencyName,
+			&country.CurrencySymbol,
+			&country.Tld,
+			&native,
+			&country.Region,
+			&regionID,
+			&country.Subregion,
+			&subregionID,
+			&country.Nationality,
+			&country.Timezones,
+			&country.Translations,
+			&country.Latitude,
+			&country.Longitude,
+			&country.Emoji,
+			&country.EmojiU,
+			&country.CreatedAt,
+			&country.UpdatedAt,
+			&country.Flag,
+			&wiki_data_id,
+		)
+
+		if native.Valid {
+			country.Native = &native.String
+		}
+		if regionID.Valid {
+			country.RegionID = &regionID.Int64
+		}
+
+		if subregionID.Valid {
+			country.SubregionID = &subregionID.Int64
+		}
+
+		if wiki_data_id.Valid {
+			country.WikiDataID = &wiki_data_id.String
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Failed to scan country",
+				"details": err.Error(),
+			})
+			return
+		}
+		countries = append(countries, country)
+	}
+
+	if err = rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error during rows iteration"})
+		return
+	}
+
+	c.JSON(http.StatusOK, countries)
+}
+
+func HandleGetCountryByID(c *gin.Context) {
+	countryID := c.Param("countryID")
+	if countryID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Country ID is required"})
+		return
+	}
+
+	row := database.DB.QueryRow("SELECT * FROM countries WHERE id = $1", countryID)
+	var country model.Country
+	var regionID, subregionID sql.NullInt64
+	var native sql.NullString
+	var wiki_data_id sql.NullString
+	err := row.Scan(
+		&country.ID,
+		&country.Name,
+		&country.Iso3,
+		&country.NumericCode,
+		&country.Iso2,
+		&country.PhoneCode,
+		&country.Capital,
+		&country.Currency,
+		&country.CurrencyName,
+		&country.CurrencySymbol,
+		&country.Tld,
+		&native,
+		&country.Region,
+		&regionID,
+		&country.Subregion,
+		&subregionID,
+		&country.Nationality,
+		&country.Timezones,
+		&country.Translations,
+		&country.Latitude,
+		&country.Longitude,
+		&country.Emoji,
+		&country.EmojiU,
+		&country.CreatedAt,
+		&country.UpdatedAt,
+		&country.Flag,
+		&wiki_data_id,
+	)
+
+	if native.Valid {
+		country.Native = &native.String
+	}
+	if regionID.Valid {
+		country.RegionID = &regionID.Int64
+	}
+	if subregionID.Valid {
+		country.SubregionID = &subregionID.Int64
+	}
+	if wiki_data_id.Valid {
+		country.WikiDataID = &wiki_data_id.String
+	}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Country not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch country"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, country)
 }
