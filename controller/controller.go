@@ -117,9 +117,14 @@ func HandleWelcome(c *gin.Context) {
 		"message": "Welcome to the Countries, States, and Cities API",
 	})
 }
+
+
+
+
 func HandleGetCountries(c *gin.Context) {
     countryID := c.Query("id")
     iso3 := c.Query("iso3")
+    region := c.Query("region")
 
     var query string
     var args []interface{}
@@ -130,6 +135,9 @@ func HandleGetCountries(c *gin.Context) {
     } else if iso3 != "" {
         query = "SELECT * FROM countries WHERE iso3 = $1"
         args = append(args, iso3)
+    } else if region != "" {
+        query = "SELECT * FROM countries WHERE region = $1"
+        args = append(args, region)
     } else {
         query = "SELECT * FROM countries"
     }
