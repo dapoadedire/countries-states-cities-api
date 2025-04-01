@@ -32,7 +32,6 @@ func main() {
 	router.GET("/", controller.HandleWelcome)
 	router.POST(syncEndpoint, controller.HandleSyncAndPopulateData)
 	router.GET("/countries", controller.HandleGetCountries)
-	router.GET("/countries/:countryID", controller.HandleGetCountryByID)
 
 	portStr := os.Getenv("PORT")
 	if portStr == "" {
